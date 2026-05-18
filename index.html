@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZIP Extractor</title>
+<title>BC Extractor</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -265,7 +265,7 @@
 <div class="shell">
 
   <div class="app-header">
-    <h1>ZIP Extractor</h1>
+    <h1>BC Extractor</h1>
     <span>Canvas submission renamer</span>
   </div>
 
@@ -274,7 +274,7 @@
     <div class="section-label" id="source-label">Source</div>
     <div class="dz" id="dropzone">
       <div class="dz-icon">📦</div>
-      <div class="dz-text" id="dz-label">Drop ZIP file here</div>
+      <div class="dz-text" id="dz-label">Drop ZIP</div>
     </div>
     <input type="file" id="file-input"   accept=".zip" multiple style="display:none">
     <input type="file" id="folder-input" style="display:none" webkitdirectory>
@@ -299,11 +299,11 @@
     <div class="checks">
       <label class="check-row">
         <input type="checkbox" id="opt-lowercase" checked>
-        Lowercase filenames
+        Lowercase
       </label>
       <label class="check-row">
         <input type="checkbox" id="opt-nonumbers">
-        Number files instead of using last names
+        Numbers
       </label>
     </div>
   </div>
