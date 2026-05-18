@@ -75,33 +75,6 @@
     margin-bottom: 12px;
   }
 
-  /* ── Segmented mode control ── */
-  .seg {
-    display: flex;
-    background: var(--bg);
-    border-radius: 8px;
-    padding: 3px;
-    gap: 2px;
-  }
-  .seg-btn {
-    flex: 1;
-    padding: 7px 12px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    font-size: .85rem;
-    font-weight: 500;
-    color: var(--sub);
-    cursor: pointer;
-    transition: all .15s;
-  }
-  .seg-btn.active {
-    background: var(--card);
-    color: var(--text);
-    box-shadow: 0 1px 3px rgba(0,0,0,.1);
-    font-weight: 600;
-  }
-
   /* ── Drop zone ── */
   .dz {
     border: 1.5px dashed var(--border);
@@ -296,15 +269,6 @@
     <span>Canvas submission renamer</span>
   </div>
 
-  <!-- Mode -->
-  <div class="card">
-    <div class="section-label">Mode</div>
-    <div class="seg">
-      <button class="seg-btn active" id="btn-single" onclick="setMode('single')">Single ZIP</button>
-      <button class="seg-btn"        id="btn-multi"  onclick="setMode('multi')">Multiple ZIPs</button>
-    </div>
-  </div>
-
   <!-- Source -->
   <div class="card">
     <div class="section-label" id="source-label">Source</div>
@@ -312,7 +276,7 @@
       <div class="dz-icon">📦</div>
       <div class="dz-text" id="dz-label">Drop ZIP file here</div>
     </div>
-    <input type="file" id="file-input"   accept=".zip" style="display:none">
+    <input type="file" id="file-input"   accept=".zip" multiple style="display:none">
     <input type="file" id="folder-input" style="display:none" webkitdirectory>
     <div class="picker-row">
       <button class="picker-btn" onclick="document.getElementById('file-input').click()">
@@ -384,20 +348,7 @@
         integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
-let mode = 'single';
 let selectedFiles = [];
-
-function setMode(m) {
-  mode = m;
-  document.getElementById('btn-single').classList.toggle('active', m === 'single');
-  document.getElementById('btn-multi').classList.toggle('active',  m === 'multi');
-  document.getElementById('dz-label').textContent =
-    m === 'single' ? 'Drop ZIP file here' : 'Drop ZIP files here';
-  syncFileInput();
-  selectedFiles = [];
-  renderFileList();
-  updateRunBtn();
-}
 
 const dropzone    = document.getElementById('dropzone');
 const fileInput   = document.getElementById('file-input');
@@ -406,13 +357,15 @@ const folderInput = document.getElementById('folder-input');
 fileInput.addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
 
 folderInput.addEventListener('change', e => {
-  const zips = [...e.target.files].filter(f => f.name.toLowerCase().endsWith('.zip'));
-  if (!zips.length) logLine('No ZIP files found in selected folder.', 'err');
+  // Only keep ZIPs directly in the selected folder (webkitRelativePath = "folder/file.zip" → 1 slash)
+  const zips = [...e.target.files].filter(f =>
+    f.name.toLowerCase().endsWith('.zip') &&
+    (f.webkitRelativePath.match(/\//g) || []).length === 1
+  );
+  if (!zips.length) logLine('No ZIP files found at the top level of the selected folder.', 'err');
   else addFiles(zips);
   e.target.value = '';
 });
-
-function syncFileInput() { fileInput.multiple = (mode === 'multi'); }
 
 dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('over'); });
 dropzone.addEventListener('dragleave', e => { if (!dropzone.contains(e.relatedTarget)) dropzone.classList.remove('over'); });
@@ -425,12 +378,8 @@ dropzone.addEventListener('drop', e => {
 function addFiles(files) {
   const zips = files.filter(f => f.name.toLowerCase().endsWith('.zip'));
   if (!zips.length) { logLine('No .zip files in selection.', 'err'); return; }
-  if (mode === 'single') {
-    selectedFiles = [zips[0]];
-  } else {
-    const existing = new Set(selectedFiles.map(f => f.name));
-    zips.forEach(f => { if (!existing.has(f.name)) selectedFiles.push(f); });
-  }
+  const existing = new Set(selectedFiles.map(f => f.name));
+  zips.forEach(f => { if (!existing.has(f.name)) selectedFiles.push(f); });
   renderFileList();
   updateRunBtn();
 }
@@ -526,7 +475,7 @@ async function run() {
 
     const prefix  = selectedFiles.length > 1 ? `[${i+1}/${selectedFiles.length}]` : '';
     const results = await processZip(file, basename, noLastname, lowercase, prefix);
-    const folder  = (mode === 'multi')
+    const folder  = selectedFiles.length > 1
       ? outputZip.folder(file.name.replace(/\.zip$/i, ''))
       : outputZip;
     results.forEach(r => { folder.file(r.name, r.blob); totalOk++; });
