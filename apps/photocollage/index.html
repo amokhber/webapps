@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo Collage PDF</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --accent:   #6366F1;
+  --accent-h: #4F46E5;
+  --accent-bg:#EEF2FF;
+  --bg:       #F4F4F6;
+  --card:     #FFFFFF;
+  --border:   #E4E4E7;
+  --text:     #18181B;
+  --sub:      #71717A;
+  --green:    #22C55E;
+  --red:      #EF4444;
+  --shadow:   0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+  --radius:   12px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 16px 60px;
+}
+.shell { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 12px; }
+
+.app-header { padding: 4px 2px 12px; display: flex; align-items: baseline; gap: 10px; }
+.app-header h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -.4px; }
+.app-header span { font-size: .8rem; color: var(--sub); }
+
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; }
+.section-label { font-size: .68rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--sub); margin-bottom: 12px; }
+
+/* Drop zone */
+.dz { border: 1.5px dashed var(--border); border-radius: 10px; padding: 28px 16px; text-align: center; transition: border-color .15s, background .15s; cursor: default; }
+.dz.over { border-color: var(--accent); background: var(--accent-bg); }
+.dz-icon { font-size: 1.6rem; margin-bottom: 7px; opacity: .7; }
+.dz-text { font-size: .88rem; color: var(--sub); }
+
+/* Picker buttons */
+.picker-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.picker-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); font-size: .84rem; font-weight: 500; color: var(--sub);
+  cursor: pointer; transition: all .15s;
+}
+.picker-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+/* Chips */
+.file-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip {
+  display: flex; align-items: center; gap: 5px; padding: 3px 8px 3px 10px;
+  background: var(--accent-bg); border: 1px solid #C7D2FE; border-radius: 999px;
+  font-size: .78rem; font-weight: 500; color: var(--accent);
+}
+.chip button { background: none; border: none; cursor: pointer; color: #A5B4FC; font-size: .8rem; line-height: 1; padding: 0; display: flex; align-items: center; }
+.chip button:hover { color: var(--red); }
+
+/* Segmented controls */
+.seg-group { display: flex; }
+.seg-btn {
+  flex: 1; min-width: 0; padding: 7px 6px; border: 1px solid var(--border); background: var(--bg);
+  font-size: .82rem; font-weight: 500; color: var(--sub); cursor: pointer; transition: all .15s;
+  text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.seg-btn:first-child { border-radius: 7px 0 0 7px; }
+.seg-btn:last-child { border-radius: 0 7px 7px 0; }
+.seg-btn + .seg-btn { border-left: none; }
+.seg-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); z-index: 1; }
+.seg-btn:hover:not(.active) { background: var(--accent-bg); color: var(--accent); }
+
+/* Grid inputs */
+.grid-input {
+  width: 62px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px;
+  font-size: 1rem; font-weight: 700; color: var(--text); background: var(--bg); outline: none;
+  transition: border-color .15s; text-align: center;
+}
+.grid-input:focus { border-color: var(--accent); background: #fff; }
+
+/* Options */
+.opt-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.opt-row:last-child { margin-bottom: 0; }
+.opt-row label { font-size: .84rem; font-weight: 500; color: var(--sub); white-space: nowrap; min-width: 80px; }
+.opt-row input[type=text] {
+  flex: 1; padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px;
+  font-size: .85rem; color: var(--text); outline: none; transition: border-color .15s; background: var(--bg);
+}
+.opt-row input[type=text]:focus { border-color: var(--accent); background: #fff; }
+.opt-row input[type=number] {
+  width: 68px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px;
+  font-size: .85rem; color: var(--text); outline: none; transition: border-color .15s; background: var(--bg);
+}
+.opt-row input[type=number]:focus { border-color: var(--accent); background: #fff; }
+.opt-row .unit { font-size: .78rem; color: var(--sub); }
+.opt-row .seg-group { flex: 1; }
+.divider { border-top: 1px solid var(--border); margin: 12px 0; }
+
+/* Checkboxes */
+.checks { display: flex; flex-direction: column; gap: 9px; padding-top: 12px; margin-top: 2px; border-top: 1px solid var(--border); }
+.check-row { display: flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; font-size: .84rem; font-weight: 500; color: var(--sub); }
+.check-row input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.check-row:hover { color: var(--text); }
+
+/* Color picker */
+input[type=color] {
+  width: 30px; height: 30px; padding: 2px 3px; border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer; background: var(--bg); flex-shrink: 0;
+}
+
+/* Actions */
+.action-bar { display: flex; gap: 8px; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 20px; border: none; border-radius: 8px; font-size: .88rem; font-weight: 600; cursor: pointer; transition: background .15s, opacity .15s; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-h); }
+.btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+.btn-ghost { background: var(--bg); color: var(--sub); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: #A1A1AA; }
+
+/* Progress */
+.progress-wrap { display: none; margin-top: 12px; }
+.progress-wrap.visible { display: block; }
+.progress-bg { height: 3px; background: var(--border); border-radius: 999px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .25s; width: 0%; }
+.progress-text { font-size: .75rem; color: var(--sub); margin-top: 5px; }
+
+/* Success */
+#dl-section { display: none; }
+#dl-section.visible { display: flex; }
+.dl-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 13px 16px; width: 100%; }
+.dl-banner .dl-msg { font-size: .88rem; font-weight: 600; color: #15803D; }
+.dl-banner .dl-sub { font-size: .76rem; color: var(--sub); margin-top: 2px; }
+
+/* Log */
+.log-card { padding: 0; overflow: hidden; }
+.log-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid #27272A; background: #1C1C1F; }
+.log-bar span { font-size: .7rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #52525B; }
+.log-bar button { background: none; border: none; font-size: .75rem; color: #52525B; cursor: pointer; }
+.log-bar button:hover { color: #A1A1AA; }
+#log { font-family: "Menlo","Consolas",monospace; font-size: .78rem; line-height: 1.65; padding: 10px 14px; height: 200px; overflow-y: auto; background: #111113; color: #A1A1AA; white-space: pre-wrap; word-break: break-all; }
+#log .ok { color: #4ADE80; }
+#log .err { color: #F87171; }
+#log .head { color: #818CF8; font-weight: 600; }
+#log .muted { color: #3F3F46; }
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+
+@media (max-width: 480px) {
+  body { padding: 20px 12px 48px; }
+  .card { padding: 14px 16px; }
+}
+
+.back-nav { display:inline-flex; align-items:center; gap:5px; font-size:.78rem; font-weight:600; color:var(--sub); text-decoration:none; padding:4px 0 0; }
+.back-nav:hover { color:var(--accent); }
+.back-nav::before { content:"←"; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <a class="back-nav" href="../../index.html">All tools</a>
+
+  <div class="app-header">
+    <h1>Photo Collage PDF</h1>
+    <span>Multi-page photo collages, in-browser</span>
+  </div>
+
+  <!-- Photos -->
+  <div class="card">
+    <div class="section-label">Photos</div>
+    <div class="dz" id="dropzone">
+      <div class="dz-icon">🖼️</div>
+      <div class="dz-text">Drop JPG or PNG photos here</div>
+    </div>
+    <input type="file" id="file-input" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple style="display:none">
+    <input type="file" id="folder-input" accept="image/jpeg,image/png" style="display:none" webkitdirectory>
+    <div class="picker-row">
+      <button class="picker-btn" onclick="document.getElementById('file-input').click()">📄 Select photos</button>
+      <button class="picker-btn" onclick="document.getElementById('folder-input').click()">📁 Select folder</button>
+    </div>
+    <div class="file-list" id="file-list"></div>
+  </div>
+
+  <!-- Layout -->
+  <div class="card">
+    <div class="section-label">Layout</div>
+
+    <div style="margin-bottom:12px">
+      <div style="font-size:.82rem;color:var(--sub);font-weight:500;margin-bottom:8px">Grid</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <input class="grid-input" type="number" id="grid-cols" value="2" min="1" max="30" oninput="updatePerPageHint()">
+        <span style="font-size:.82rem;color:var(--sub)">cols</span>
+        <span style="font-size:.9rem;color:var(--border);padding:0 2px">×</span>
+        <input class="grid-input" type="number" id="grid-rows" value="2" min="1" max="30" oninput="updatePerPageHint()">
+        <span style="font-size:.82rem;color:var(--sub)">rows</span>
+        <span id="per-page-hint" style="font-size:.78rem;color:var(--sub);margin-left:2px">→ 4 per page</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="opt-row">
+      <label>Paper</label>
+      <div class="seg-group" id="paper-seg">
+        <button class="seg-btn active" data-val="A4">A4</button>
+        <button class="seg-btn" data-val="LETTER">Letter</button>
+      </div>
+    </div>
+    <div class="opt-row">
+      <label>Orientation</label>
+      <div class="seg-group" id="orient-seg">
+        <button class="seg-btn active" data-val="portrait">Portrait</button>
+        <button class="seg-btn" data-val="landscape">Landscape</button>
+      </div>
+    </div>
+    <div class="opt-row">
+      <label>Quality</label>
+      <div class="seg-group" id="quality-seg">
+        <button class="seg-btn" data-val="72">72 dpi</button>
+        <button class="seg-btn" data-val="150">150 dpi</button>
+        <button class="seg-btn active" data-val="300">300 dpi</button>
+        <button class="seg-btn" data-val="600">600 dpi</button>
+      </div>
+    </div>
+    <div class="opt-row">
+      <label>Fit mode</label>
+      <div class="seg-group" id="fit-seg">
+        <button class="seg-btn active" data-val="contain">Contain</button>
+        <button class="seg-btn" data-val="cover">Cover</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="opt-row">
+      <label>Margin</label>
+      <input type="number" id="opt-margin" value="10" min="0" max="50" step="0.5">
+      <span class="unit">mm</span>
+    </div>
+    <div class="opt-row">
+      <label>Spacing</label>
+      <input type="number" id="opt-spacing" value="5" min="0" max="30" step="0.5">
+      <span class="unit">mm</span>
+    </div>
+    <div class="opt-row">
+      <label>Border</label>
+      <input type="number" id="opt-border" value="0" min="0" max="5" step="0.1">
+      <span class="unit">mm</span>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="card">
+    <div class="section-label">Content</div>
+
+    <div class="opt-row">
+      <label>Sort by</label>
+      <div class="seg-group" id="sort-seg">
+        <button class="seg-btn active" data-val="name">Name</button>
+        <button class="seg-btn" data-val="filetime">Modified</button>
+        <button class="seg-btn" data-val="exifdate">EXIF date</button>
+      </div>
+    </div>
+    <div class="opt-row">
+      <label>Caption</label>
+      <div class="seg-group" id="caption-seg">
+        <button class="seg-btn active" data-val="none">None</button>
+        <button class="seg-btn" data-val="basename">Basename</button>
+        <button class="seg-btn" data-val="filename">Filename</button>
+        <button class="seg-btn" data-val="date">Date</button>
+      </div>
+    </div>
+    <div class="opt-row">
+      <label>Caption style</label>
+      <input type="number" id="caption-pt" value="9" min="6" max="36" step="0.5" style="width:52px" title="Font size in points">
+      <span class="unit">pt</span>
+      <input type="color" id="caption-color" value="#000000" title="Caption text color">
+    </div>
+    <div class="divider"></div>
+    <div class="opt-row">
+      <label style="min-width:60px">Header</label>
+      <input type="text" id="opt-header" placeholder="Header text (optional)" style="flex:1;min-width:0">
+      <input type="number" id="header-pt" value="12" min="6" max="48" step="0.5" style="width:48px;flex-shrink:0" title="Font size in points">
+      <span class="unit">pt</span>
+      <input type="color" id="header-color" value="#000000" title="Header text color">
+    </div>
+    <div class="opt-row">
+      <label style="min-width:60px">Footer</label>
+      <input type="text" id="opt-footer" placeholder="Footer text (optional)" style="flex:1;min-width:0">
+      <input type="number" id="footer-pt" value="12" min="6" max="48" step="0.5" style="width:48px;flex-shrink:0" title="Font size in points">
+      <span class="unit">pt</span>
+      <input type="color" id="footer-color" value="#000000" title="Footer text color">
+    </div>
+
+    <div class="checks">
+      <label class="check-row">
+        <input type="checkbox" id="opt-reverse">
+        Reverse sort order
+      </label>
+      <label class="check-row">
+        <input type="checkbox" id="opt-autorotate" checked>
+        Auto-rotate from EXIF orientation
+      </label>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="card">
+    <div class="action-bar">
+      <button class="btn btn-primary" id="run-btn" onclick="run()" disabled>
+        📄 Generate PDF
+      </button>
+      <button class="btn btn-ghost" onclick="resetAll()">Clear</button>
+    </div>
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bg"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-text" id="progress-text"></div>
+    </div>
+  </div>
+
+  <!-- Success -->
+  <div id="dl-section">
+    <div class="dl-banner">
+      <div>
+        <div class="dl-msg" id="dl-msg">PDF ready</div>
+        <div class="dl-sub" id="dl-sub"></div>
+      </div>
+      <button class="btn btn-primary" id="dl-btn">⬇ Download again</button>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card log-card">
+    <div class="log-bar">
+      <span>Output</span>
+      <button onclick="clearLog()">Clear</button>
+    </div>
+    <div id="log"></div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let selectedFiles = [];  // File objects
+
+// ── Paper sizes (mm) ───────────────────────────────────────────────────────
+const PAPER_MM = { A4: [210, 297], LETTER: [216, 279] };
+
+// ── File management ────────────────────────────────────────────────────────
+function isImage(f) { return /\.(jpg|jpeg|png)$/i.test(f.name); }
+
+function addFiles(files) {
+  const imgs = [...files].filter(isImage);
+  if (!imgs.length) { logLine('No JPG/PNG files in selection.', 'err'); return; }
+  const existing = new Set(selectedFiles.map(f => f.name));
+  imgs.forEach(f => { if (!existing.has(f.name)) selectedFiles.push(f); });
+  renderChips();
+  updateRunBtn();
+  logLine(`${imgs.length} photo(s) added. Total: ${selectedFiles.length}.`, 'ok');
+}
+
+function removeFile(name) {
+  selectedFiles = selectedFiles.filter(f => f.name !== name);
+  renderChips();
+  updateRunBtn();
+}
+
+function renderChips() {
+  document.getElementById('file-list').innerHTML = selectedFiles.map(f => `
+    <div class="chip">${esc(f.name)}
+      <button title="Remove" onclick="removeFile('${esc(f.name).replace(/'/g,"\\'")}')">✕</button>
+    </div>`).join('');
+}
+
+function updateRunBtn() {
+  document.getElementById('run-btn').disabled = selectedFiles.length === 0;
+}
+
+// ── Drag & drop ────────────────────────────────────────────────────────────
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', e => { if (!dz.contains(e.relatedTarget)) dz.classList.remove('over'); });
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  addFiles([...e.dataTransfer.files]);
+});
+
+document.getElementById('file-input').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+document.getElementById('folder-input').addEventListener('change', e => {
+  const topLevel = [...e.target.files].filter(f =>
+    isImage(f) && (f.webkitRelativePath.match(/\//g) || []).length === 1
+  );
+  if (!topLevel.length) logLine('No JPG/PNG images at top level of the folder.', 'err');
+  else addFiles(topLevel);
+  e.target.value = '';
+});
+
+// ── Segmented controls ─────────────────────────────────────────────────────
+function initSeg(id) {
+  document.getElementById(id).addEventListener('click', e => {
+    const btn = e.target.closest('.seg-btn');
+    if (!btn) return;
+    btn.parentElement.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+}
+['paper-seg','orient-seg','quality-seg','fit-seg','sort-seg','caption-seg'].forEach(initSeg);
+
+function updatePerPageHint() {
+  const cols = Math.max(1, parseInt(document.getElementById('grid-cols').value) || 1);
+  const rows = Math.max(1, parseInt(document.getElementById('grid-rows').value) || 1);
+  document.getElementById('per-page-hint').textContent = `→ ${cols * rows} per page`;
+}
+
+function getSegVal(id) {
+  return document.querySelector(`#${id} .seg-btn.active`)?.dataset.val ?? '';
+}
+
+// ── EXIF reader (inline, no extra CDN) ────────────────────────────────────
+async function readExifTags(file) {
+  if (!/\.(jpg|jpeg)$/i.test(file.name) && file.type !== 'image/jpeg') return { orientation: 1, datetime: null };
+  try {
+    const buf = await file.slice(0, 131072).arrayBuffer();
+    return parseJpegExif(new DataView(buf));
+  } catch(_) { return { orientation: 1, datetime: null }; }
+}
+
+function parseJpegExif(view) {
+  if (view.byteLength < 4 || view.getUint16(0) !== 0xFFD8) return { orientation: 1, datetime: null };
+  let off = 2;
+  while (off + 4 <= view.byteLength) {
+    const marker = view.getUint16(off);
+    const segLen = view.getUint16(off + 2);
+    if (marker === 0xFFE1) {
+      if (view.getUint32(off + 4) === 0x45786966 && view.getUint16(off + 8) === 0)
+        return parseTiff(view, off + 10);
+    }
+    if ((marker & 0xFF00) !== 0xFF00 || marker === 0xFFDA) break;
+    off += 2 + segLen;
+  }
+  return { orientation: 1, datetime: null };
+}
+
+function parseTiff(view, base) {
+  if (base + 8 > view.byteLength) return { orientation: 1, datetime: null };
+  const le = view.getUint16(base) === 0x4949;
+  const r16 = o => view.getUint16(base + o, le);
+  const r32 = o => view.getUint32(base + o, le);
+  if (r16(2) !== 42) return { orientation: 1, datetime: null };
+  const ifd0 = r32(4);
+  if (ifd0 + 2 > view.byteLength - base) return { orientation: 1, datetime: null };
+  const n = r16(ifd0);
+  let orientation = 1, datetimeStr = null, exifPtr = null;
+  for (let i = 0; i < n; i++) {
+    const e = ifd0 + 2 + i * 12;
+    if (e + 12 > view.byteLength - base) break;
+    const tag = r16(e);
+    if (tag === 0x0112) orientation = r16(e + 8);
+    else if (tag === 0x8769) exifPtr = r32(e + 8);
+    else if (tag === 0x0132 && !datetimeStr) datetimeStr = readAscii(view, base + r32(e + 8), 20);
+  }
+  if (exifPtr) {
+    const ne = r16(exifPtr);
+    for (let i = 0; i < ne; i++) {
+      const e = exifPtr + 2 + i * 12;
+      if (e + 12 > view.byteLength - base) break;
+      if (r16(e) === 0x9003) { datetimeStr = readAscii(view, base + r32(e + 8), 20); break; }
+    }
+  }
+  return { orientation, datetime: parseExifDate(datetimeStr) };
+}
+
+function readAscii(view, offset, max) {
+  let s = '';
+  for (let i = 0; i < max && offset + i < view.byteLength; i++) {
+    const c = view.getUint8(offset + i);
+    if (!c) break;
+    s += String.fromCharCode(c);
+  }
+  return s || null;
+}
+
+function hexToRgb(hex) {
+  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+}
+
+function formatDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function parseExifDate(s) {
+  if (!s) return null;
+  const m = s.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+  return m ? new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]) : null;
+}
+
+// ── Image processing ───────────────────────────────────────────────────────
+function loadImage(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); res(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Failed to load image')); };
+    img.src = url;
+  });
+}
+
+function applyOrientation(img, orientation) {
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (orientation === 6 || orientation === 8) { canvas.width = ih; canvas.height = iw; }
+  else { canvas.width = iw; canvas.height = ih; }
+  switch (orientation) {
+    case 3: ctx.translate(iw, ih);   ctx.rotate(Math.PI);       break;
+    case 6: ctx.translate(ih, 0);    ctx.rotate(Math.PI / 2);   break;
+    case 8: ctx.translate(0, iw);    ctx.rotate(-Math.PI / 2);  break;
+  }
+  ctx.drawImage(img, 0, 0);
+  return canvas;
+}
+
+function fitToCell(src, boxW, boxH, innerW, innerH, mode) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const sw = src.width || src.naturalWidth, sh = src.height || src.naturalHeight;
+  if (mode === 'contain') {
+    const scale = Math.min(innerW / sw, innerH / sh);
+    const dw = Math.max(1, Math.round(sw * scale));
+    const dh = Math.max(1, Math.round(sh * scale));
+    canvas.width = dw; canvas.height = dh;
+    ctx.drawImage(src, 0, 0, dw, dh);
+  } else { // cover
+    canvas.width = innerW; canvas.height = innerH;
+    const scale = Math.max(innerW / sw, innerH / sh);
+    const srcW = Math.round(innerW / scale), srcH = Math.round(innerH / scale);
+    const srcX = Math.max(0, Math.round((sw - srcW) / 2));
+    const srcY = Math.max(0, Math.round((sh - srcH) / 2));
+    ctx.drawImage(src, srcX, srcY, srcW, srcH, 0, 0, innerW, innerH);
+  }
+  return canvas;
+}
+
+// ── Grid & layout ──────────────────────────────────────────────────────────
+
+function layoutCells(pageW, pageH, rows, cols, marginPx, spacingPx, captionHPx) {
+  const usableW = pageW - 2 * marginPx;
+  const usableH = pageH - 2 * marginPx;
+  const cellW = Math.floor((usableW - spacingPx * (cols - 1)) / cols);
+  const cellHTotal = Math.floor((usableH - spacingPx * (rows - 1)) / rows);
+  const cellHImg = Math.max(1, cellHTotal - captionHPx);
+  const cells = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x0 = marginPx + c * (cellW + spacingPx);
+      const y0 = marginPx + r * (cellHTotal + spacingPx);
+      cells.push({ x0, y0, x1: x0 + cellW, y1: y0 + cellHImg, cellW, cellHTotal });
+    }
+  }
+  return cells;
+}
+
+// ── Page rendering ─────────────────────────────────────────────────────────
+async function renderPage(pageFiles, exifMap, cells, pageW, pageH, opts) {
+  const canvas = document.createElement('canvas');
+  canvas.width = pageW; canvas.height = pageH;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, pageW, pageH);
+
+  for (let i = 0; i < pageFiles.length; i++) {
+    const file = pageFiles[i];
+    const cell = cells[i];
+    const { x0, y0, x1, y1, cellW } = cell;
+    const boxW = x1 - x0, boxH = y1 - y0;
+    const innerW = Math.max(1, boxW - 2 * opts.borderPx);
+    const innerH = Math.max(1, boxH - 2 * opts.borderPx);
+
+    try {
+      const img = await loadImage(file);
+      let src = img;
+      if (opts.autoRotate) {
+        const exif = exifMap.get(file.name) || { orientation: 1 };
+        src = applyOrientation(img, exif.orientation);
+      }
+      const fitted = fitToCell(src, boxW, boxH, innerW, innerH, opts.fit);
+      const offX = x0 + Math.floor((boxW - fitted.width) / 2);
+      const offY = y0 + Math.floor((boxH - fitted.height) / 2);
+      ctx.drawImage(fitted, offX, offY);
+
+      if (opts.borderPx > 0) {
+        ctx.save();
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = Math.max(1, opts.borderPx);
+        ctx.strokeRect(offX, offY, fitted.width, fitted.height);
+        ctx.restore();
+      }
+
+    } catch(e) {
+      logLine(`  Skipping ${file.name}: ${e.message}`, 'err');
+    }
+  }
+
+  return canvas;
+}
+
+// ── Main run ───────────────────────────────────────────────────────────────
+async function run() {
+  if (!selectedFiles.length) return;
+
+  const runBtn = document.getElementById('run-btn');
+  runBtn.disabled = true;
+  runBtn.innerHTML = '<div class="spinner"></div> Generating…';
+  setProgress(true, 0, 'Reading options…');
+  document.getElementById('dl-section').classList.remove('visible');
+  logLine('─'.repeat(44), 'muted');
+
+  // Gather options
+  const cols      = Math.max(1, parseInt(document.getElementById('grid-cols').value) || 2);
+  const rows      = Math.max(1, parseInt(document.getElementById('grid-rows').value) || 2);
+  const perPage   = cols * rows;
+  const paper     = getSegVal('paper-seg');
+  const landscape = getSegVal('orient-seg') === 'landscape';
+  const dpi       = parseInt(getSegVal('quality-seg'));
+  const fit       = getSegVal('fit-seg');
+  const sortBy    = getSegVal('sort-seg');
+  const caption   = getSegVal('caption-seg');
+  const autoRotate= document.getElementById('opt-autorotate').checked;
+  const reverse   = document.getElementById('opt-reverse').checked;
+  const marginMm  = parseFloat(document.getElementById('opt-margin').value) || 10;
+  const spacingMm = parseFloat(document.getElementById('opt-spacing').value) || 5;
+  const borderMm     = parseFloat(document.getElementById('opt-border').value) || 0;
+  const header       = document.getElementById('opt-header').value.trim();
+  const footer       = document.getElementById('opt-footer').value.trim();
+  const captionPtVal = parseFloat(document.getElementById('caption-pt').value) || 9;
+  const captionColor = document.getElementById('caption-color').value;
+  const headerPtVal  = parseFloat(document.getElementById('header-pt').value) || 12;
+  const headerColor  = document.getElementById('header-color').value;
+  const footerPtVal  = parseFloat(document.getElementById('footer-pt').value) || 12;
+  const footerColor  = document.getElementById('footer-color').value;
+
+  const mm2px = mm => Math.round(mm * dpi / 25.4);
+  const pt2px = pt => Math.round(pt * dpi / 72.0);
+
+  const [paperW_mm, paperH_mm] = landscape
+    ? [PAPER_MM[paper][1], PAPER_MM[paper][0]]
+    : PAPER_MM[paper];
+  const pageW = mm2px(paperW_mm), pageH = mm2px(paperH_mm);
+  const marginPx  = mm2px(marginMm);
+  const spacingPx = mm2px(spacingMm);
+  const borderPx  = mm2px(borderMm);
+
+  const captionFontPx = caption !== 'none' ? Math.max(8, pt2px(captionPtVal)) : 0;
+  const captionHPx    = caption !== 'none' ? Math.round(captionFontPx * 1.4) : 0;
+  const headerFontPx  = Math.max(8, pt2px(headerPtVal));
+  const footerFontPx  = Math.max(8, pt2px(footerPtVal));
+
+  // Collect & sort files
+  let files = [...selectedFiles];
+
+  setProgress(true, 5, 'Reading EXIF data…');
+  logLine(`Reading EXIF from ${files.length} photo(s)…`, 'head');
+
+  const exifMap = new Map();
+  for (const f of files) {
+    try {
+      const tags = await readExifTags(f);
+      exifMap.set(f.name, tags);
+    } catch(_) { exifMap.set(f.name, { orientation: 1, datetime: null }); }
+  }
+
+  if (sortBy === 'name') {
+    files.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  } else if (sortBy === 'filetime') {
+    files.sort((a, b) => a.lastModified - b.lastModified);
+  } else { // exifdate
+    files.sort((a, b) => {
+      const da = exifMap.get(a.name)?.datetime?.getTime() ?? a.lastModified;
+      const db = exifMap.get(b.name)?.datetime?.getTime() ?? b.lastModified;
+      return da - db;
+    });
+  }
+  if (reverse) files.reverse();
+
+  logLine(`Sorted ${files.length} photos by ${sortBy}${reverse ? ' (reversed)' : ''}.`, 'ok');
+
+  // Grid & cells
+  const cells = layoutCells(pageW, pageH, rows, cols, marginPx, spacingPx, captionHPx);
+
+  const opts = { fit, autoRotate, borderPx, captionMode: caption, captionFontPx, captionHPx,
+                 captionColor, headerFontPx, headerColor, footerFontPx, footerColor,
+                 marginPx, header, footer };
+
+  // Build PDF
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'mm', format: paper.toLowerCase() });
+
+  const totalPages = Math.ceil(files.length / perPage);
+  logLine(`Rendering ${totalPages} page(s), ${rows}×${cols} grid, ${dpi} dpi…`, 'head');
+
+  let lastBlob = null;
+
+  for (let p = 0; p < totalPages; p++) {
+    setProgress(true, Math.round(10 + (p / totalPages) * 80),
+      `Page ${p + 1} / ${totalPages}…`);
+
+    const pageFiles = files.slice(p * perPage, (p + 1) * perPage);
+    logLine(`  Page ${p + 1}: ${pageFiles.map(f => f.name).join(', ')}`, 'muted');
+
+    const canvas = await renderPage(pageFiles, exifMap, cells, pageW, pageH, opts);
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    if (p > 0) pdf.addPage();
+    pdf.addImage(imgData, 'JPEG', 0, 0, paperW_mm, paperH_mm, '', 'FAST');
+
+    // Free canvas memory
+    canvas.width = 0; canvas.height = 0;
+
+    // ── Vector text (not rasterised) ────────────────────────────────────────
+    const px2mm = px => px * 25.4 / dpi;
+
+    if (caption !== 'none' && captionHPx > 0) {
+      pdf.setFontSize(captionPtVal);
+      pdf.setTextColor(...hexToRgb(captionColor));
+      for (let i = 0; i < pageFiles.length; i++) {
+        const file = pageFiles[i];
+        const cell = cells[i];
+        let text = '';
+        if (caption === 'filename') text = file.name;
+        else if (caption === 'basename') text = file.name.replace(/\.[^.]+$/, '');
+        else if (caption === 'date') {
+          const d = exifMap.get(file.name)?.datetime || new Date(file.lastModified);
+          text = formatDate(d);
+        }
+        if (text) {
+          const cx = px2mm(cell.x0 + cell.cellW / 2);
+          const cy = px2mm(cell.y1 + captionHPx / 2);
+          pdf.text(text, cx, cy, { align: 'center', baseline: 'middle' });
+        }
+      }
+    }
+
+    if (header) {
+      pdf.setFontSize(headerPtVal);
+      pdf.setTextColor(...hexToRgb(headerColor));
+      pdf.text(header, paperW_mm / 2, px2mm(marginPx / 2), { align: 'center', baseline: 'middle' });
+    }
+
+    if (footer) {
+      pdf.setFontSize(footerPtVal);
+      pdf.setTextColor(...hexToRgb(footerColor));
+      pdf.text(footer, paperW_mm / 2, px2mm(pageH - marginPx / 2), { align: 'center', baseline: 'middle' });
+    }
+  }
+
+  setProgress(true, 95, 'Saving PDF…');
+  const pdfBlob = pdf.output('blob');
+  const pdfName = 'collage.pdf';
+
+  logLine(`\nDone — ${files.length} photo(s) across ${totalPages} page(s).`, 'ok');
+
+  document.getElementById('dl-btn').onclick = () => downloadBlob(pdfBlob, pdfName);
+  document.getElementById('dl-msg').textContent = `${files.length} photo(s) on ${totalPages} page(s)`;
+  document.getElementById('dl-sub').textContent  = pdfName;
+  document.getElementById('dl-section').classList.add('visible');
+  downloadBlob(pdfBlob, pdfName);
+
+  setProgress(false);
+  runBtn.disabled = false;
+  runBtn.innerHTML = '📄 Generate PDF';
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────────────
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function setProgress(visible, pct, text) {
+  document.getElementById('progress-wrap').classList.toggle('visible', visible);
+  if (visible) {
+    document.getElementById('progress-fill').style.width = (pct || 0) + '%';
+    document.getElementById('progress-text').textContent = text || '';
+  }
+}
+
+function logLine(msg, cls) {
+  const log = document.getElementById('log');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+function resetAll() {
+  selectedFiles = [];
+  renderChips();
+  updateRunBtn();
+  clearLog();
+  document.getElementById('opt-header').value = '';
+  document.getElementById('opt-footer').value = '';
+  document.getElementById('caption-pt').value = '9';
+  document.getElementById('caption-color').value = '#000000';
+  document.getElementById('header-pt').value = '12';
+  document.getElementById('header-color').value = '#000000';
+  document.getElementById('footer-pt').value = '12';
+  document.getElementById('footer-color').value = '#000000';
+  document.getElementById('grid-cols').value = '2';
+  document.getElementById('grid-rows').value = '2';
+  updatePerPageHint();
+  document.getElementById('opt-margin').value = '10';
+  document.getElementById('opt-spacing').value = '5';
+  document.getElementById('opt-border').value = '0';
+  document.getElementById('opt-reverse').checked = false;
+  document.getElementById('opt-autorotate').checked = true;
+  document.getElementById('dl-section').classList.remove('visible');
+  setProgress(false);
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+</script>
+</body>
+</html>

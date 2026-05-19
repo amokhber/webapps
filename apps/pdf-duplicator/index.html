@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Duplicator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --accent:   #6366F1;
+    --accent-h: #4F46E5;
+    --accent-bg:#EEF2FF;
+    --bg:       #F4F4F6;
+    --card:     #FFFFFF;
+    --border:   #E4E4E7;
+    --text:     #18181B;
+    --sub:      #71717A;
+    --green:    #22C55E;
+    --red:      #EF4444;
+    --shadow:   0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+    --radius:   12px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 16px 60px;
+  }
+
+  .shell {
+    width: 100%;
+    max-width: 640px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ── Back nav ── */
+  .back-nav { display:inline-flex; align-items:center; gap:5px; font-size:.78rem; font-weight:600; color:var(--sub); text-decoration:none; padding:4px 0 0; }
+  .back-nav:hover { color:var(--accent); }
+  .back-nav::before { content:"←"; }
+
+  /* ── Header ── */
+  .app-header {
+    padding: 4px 2px 12px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .app-header h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -.4px; color: var(--text); }
+  .app-header span { font-size: .8rem; color: var(--sub); }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+  }
+  .section-label {
+    font-size: .68rem; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--sub); margin-bottom: 12px;
+  }
+
+  /* ── Drop zone ── */
+  .dz {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 28px 16px;
+    text-align: center;
+    transition: border-color .15s, background .15s;
+    cursor: default;
+  }
+  .dz.over { border-color: var(--accent); background: var(--accent-bg); }
+  .dz-icon { font-size: 1.6rem; margin-bottom: 7px; opacity: .7; }
+  .dz-text { font-size: .88rem; color: var(--sub); }
+
+  /* ── Picker button ── */
+  .picker-row { margin-top: 10px; }
+  .picker-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    font-size: .84rem; font-weight: 500; color: var(--sub);
+    cursor: pointer; transition: all .15s;
+  }
+  .picker-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+  /* ── File chip ── */
+  .file-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip {
+    display: flex; align-items: center; gap: 5px;
+    padding: 3px 8px 3px 10px;
+    background: var(--accent-bg); border: 1px solid #C7D2FE;
+    border-radius: 999px; font-size: .78rem; font-weight: 500; color: var(--accent);
+  }
+  .chip button {
+    background: none; border: none; cursor: pointer;
+    color: #A5B4FC; font-size: .8rem; line-height: 1; padding: 0;
+    display: flex; align-items: center;
+  }
+  .chip button:hover { color: var(--red); }
+
+  /* ── Options ── */
+  .opt-row {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .opt-row label {
+    font-size: .84rem; font-weight: 500; color: var(--sub);
+    white-space: nowrap; min-width: 100px;
+  }
+  .opt-row input[type=number] {
+    width: 80px;
+    padding: 7px 11px;
+    border: 1px solid var(--border); border-radius: 7px;
+    font-size: .85rem; color: var(--text);
+    outline: none; transition: border-color .15s; background: var(--bg);
+  }
+  .opt-row input[type=number]:focus { border-color: var(--accent); background: #fff; }
+  .opt-hint {
+    font-size: .8rem; color: var(--sub);
+  }
+  .opt-hint span { color: var(--accent); font-weight: 600; }
+
+  /* ── Actions ── */
+  .action-bar { display: flex; gap: 8px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 20px; border: none; border-radius: 8px;
+    font-size: .88rem; font-weight: 600;
+    cursor: pointer; transition: background .15s, opacity .15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-h); }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-ghost { background: var(--bg); color: var(--sub); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: #A1A1AA; }
+
+  /* ── Progress ── */
+  .progress-wrap { display: none; margin-top: 12px; }
+  .progress-wrap.visible { display: block; }
+  .progress-bg { height: 3px; background: var(--border); border-radius: 999px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .2s; width: 0%; }
+  .progress-text { font-size: .75rem; color: var(--sub); margin-top: 5px; }
+
+  /* ── Success banner ── */
+  #dl-section { display: none; }
+  #dl-section.visible { display: flex; }
+  .dl-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    flex-wrap: wrap;
+    background: #F0FDF4; border: 1px solid #BBF7D0;
+    border-radius: 10px; padding: 13px 16px;
+  }
+  .dl-banner .dl-msg { font-size: .88rem; font-weight: 600; color: #15803D; }
+  .dl-banner .dl-sub { font-size: .76rem; color: var(--sub); margin-top: 2px; }
+
+  /* ── Log ── */
+  .log-card { padding: 0; overflow: hidden; }
+  .log-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px; border-bottom: 1px solid #27272A; background: #1C1C1F;
+  }
+  .log-bar span { font-size: .7rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #52525B; }
+  .log-bar button { background: none; border: none; font-size: .75rem; color: #52525B; cursor: pointer; }
+  .log-bar button:hover { color: #A1A1AA; }
+  #log {
+    font-family: "Menlo", "Consolas", monospace;
+    font-size: .78rem; line-height: 1.65;
+    padding: 10px 14px; height: 200px;
+    overflow-y: auto; background: #111113;
+    color: #A1A1AA; white-space: pre-wrap; word-break: break-all;
+  }
+  #log .ok    { color: #4ADE80; }
+  #log .err   { color: #F87171; }
+  #log .head  { color: #818CF8; font-weight: 600; }
+  #log .muted { color: #3F3F46; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.3); border-top-color: #fff;
+    border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0;
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 20px 12px 48px; }
+    .card { padding: 14px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <a class="back-nav" href="../../index.html">All tools</a>
+
+  <div class="app-header">
+    <h1>PDF Duplicator</h1>
+    <span>repeat a PDF's pages n times</span>
+  </div>
+
+  <!-- Source -->
+  <div class="card">
+    <div class="section-label">Source PDF</div>
+    <div class="dz" id="dropzone">
+      <div class="dz-icon">PDF</div>
+      <div class="dz-text">Drop a PDF file here</div>
+    </div>
+    <input type="file" id="file-input" accept=".pdf" style="display:none">
+    <div class="picker-row">
+      <button class="picker-btn" onclick="document.getElementById('file-input').click()">
+        Select PDF
+      </button>
+    </div>
+    <div class="file-list" id="file-list"></div>
+  </div>
+
+  <!-- Options -->
+  <div class="card">
+    <div class="section-label">Options</div>
+    <div class="opt-row">
+      <label for="n-input">Repeat count</label>
+      <input type="number" id="n-input" value="10" min="1" max="9999">
+      <div class="opt-hint" id="page-hint"></div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="card">
+    <div class="action-bar">
+      <button class="btn btn-primary" id="run-btn" onclick="run()" disabled>
+        Duplicate
+      </button>
+      <button class="btn btn-ghost" onclick="reset()">Clear</button>
+    </div>
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bg"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-text" id="progress-text"></div>
+    </div>
+  </div>
+
+  <!-- Success -->
+  <div id="dl-section">
+    <div class="dl-banner">
+      <div>
+        <div class="dl-msg" id="dl-msg">Done</div>
+        <div class="dl-sub" id="dl-sub"></div>
+      </div>
+      <button class="btn btn-primary" id="dl-btn">Download again</button>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card log-card">
+    <div class="log-bar">
+      <span>Output</span>
+      <button onclick="clearLog()">Clear</button>
+    </div>
+    <div id="log"></div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script>
+let selectedFile = null;
+let srcPageCount = 0;
+
+const dropzone  = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const nInput    = document.getElementById('n-input');
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) setFile(e.target.files[0]);
+  e.target.value = '';
+});
+
+dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('over'); });
+dropzone.addEventListener('dragleave', e => { if (!dropzone.contains(e.relatedTarget)) dropzone.classList.remove('over'); });
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('over');
+  const f = [...e.dataTransfer.files].find(f => f.name.toLowerCase().endsWith('.pdf'));
+  if (f) setFile(f);
+  else logLine('No PDF file found in drop.', 'err');
+});
+
+async function setFile(file) {
+  selectedFile = file;
+  srcPageCount = 0;
+
+  // Peek at page count without loading full doc yet
+  try {
+    const bytes = await file.arrayBuffer();
+    const doc = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+    srcPageCount = doc.getPageCount();
+  } catch(e) {
+    logLine(`Could not read PDF: ${e.message}`, 'err');
+    selectedFile = null;
+    return;
+  }
+
+  renderFileChip();
+  updateHint();
+  document.getElementById('run-btn').disabled = false;
+}
+
+function renderFileChip() {
+  const list = document.getElementById('file-list');
+  if (!selectedFile) { list.innerHTML = ''; return; }
+  list.innerHTML = `
+    <div class="chip">
+      ${escHtml(selectedFile.name)}
+      <button title="Remove" onclick="clearFile()">✕</button>
+    </div>`;
+}
+
+function clearFile() {
+  selectedFile = null;
+  srcPageCount = 0;
+  renderFileChip();
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('page-hint').innerHTML = '';
+}
+
+nInput.addEventListener('input', updateHint);
+
+function updateHint() {
+  const hint = document.getElementById('page-hint');
+  if (!srcPageCount) { hint.innerHTML = ''; return; }
+  const n = parseInt(nInput.value, 10);
+  if (!n || n < 1) { hint.innerHTML = ''; return; }
+  hint.innerHTML = `${srcPageCount} pages &times; ${n} = <span>${srcPageCount * n} pages</span>`;
+}
+
+async function run() {
+  if (!selectedFile) return;
+  const n = parseInt(nInput.value, 10);
+  if (!n || n < 1) { logLine('Repeat count must be at least 1.', 'err'); return; }
+
+  const runBtn = document.getElementById('run-btn');
+  runBtn.disabled = true;
+  runBtn.innerHTML = '<div class="spinner"></div> Processing…';
+  setProgress(true, 0, 'Loading PDF…');
+  document.getElementById('dl-section').classList.remove('visible');
+
+  logLine('─'.repeat(44), 'muted');
+  logLine(selectedFile.name, 'head');
+
+  try {
+    const inputBytes = await selectedFile.arrayBuffer();
+    const srcDoc = await PDFLib.PDFDocument.load(inputBytes);
+    const pageIndices = srcDoc.getPageIndices();
+    const totalPages = pageIndices.length;
+    logLine(`  ${totalPages} page(s) in source`, 'muted');
+
+    const outDoc = await PDFLib.PDFDocument.create();
+
+    for (let i = 0; i < n; i++) {
+      setProgress(true, Math.round(((i) / n) * 90), `Appending copy ${i + 1} of ${n}…`);
+      logLine(`  Appending copy ${i + 1} of ${n}…`);
+      const copied = await outDoc.copyPages(srcDoc, pageIndices);
+      copied.forEach(p => outDoc.addPage(p));
+      // yield to keep UI responsive
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    setProgress(true, 92, 'Saving PDF…');
+    logLine('  Saving output…');
+    const outBytes = await outDoc.save();
+    const outBlob  = new Blob([outBytes], { type: 'application/pdf' });
+
+    const base = selectedFile.name.replace(/\.pdf$/i, '');
+    const outName = `${base}_x${n}.pdf`;
+    const totalOut = totalPages * n;
+
+    setProgress(true, 100, 'Done');
+    logLine(`\nSaved as ${outName} (${totalOut} pages)`, 'ok');
+
+    document.getElementById('dl-btn').onclick = () => downloadBlob(outBlob, outName);
+    document.getElementById('dl-msg').textContent = `${totalOut} pages — ${n} copies of ${totalPages}`;
+    document.getElementById('dl-sub').textContent  = outName;
+    document.getElementById('dl-section').classList.add('visible');
+    downloadBlob(outBlob, outName);
+
+  } catch(e) {
+    logLine(`Error: ${e.message}`, 'err');
+  }
+
+  setProgress(false);
+  runBtn.disabled = false;
+  runBtn.innerHTML = 'Duplicate';
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function setProgress(visible, pct, text) {
+  document.getElementById('progress-wrap').classList.toggle('visible', visible);
+  if (visible) {
+    document.getElementById('progress-fill').style.width = (pct || 0) + '%';
+    document.getElementById('progress-text').textContent = text || '';
+  }
+}
+
+function logLine(msg, cls) {
+  const log  = document.getElementById('log');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+function reset() {
+  clearFile();
+  clearLog();
+  nInput.value = '10';
+  document.getElementById('dl-section').classList.remove('visible');
+  setProgress(false);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
