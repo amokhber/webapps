@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Chapter Splitter</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --accent:   #6366F1;
+    --accent-h: #4F46E5;
+    --accent-bg:#EEF2FF;
+    --bg:       #F4F4F6;
+    --card:     #FFFFFF;
+    --border:   #E4E4E7;
+    --text:     #18181B;
+    --sub:      #71717A;
+    --green:    #22C55E;
+    --red:      #EF4444;
+    --shadow:   0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+    --radius:   12px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 16px 60px;
+  }
+
+  .shell {
+    width: 100%;
+    max-width: 640px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .back-nav { display:inline-flex; align-items:center; gap:5px; font-size:.78rem; font-weight:600; color:var(--sub); text-decoration:none; padding:4px 0 0; }
+  .back-nav:hover { color:var(--accent); }
+  .back-nav::before { content:"←"; }
+
+  .app-header { padding: 4px 2px 12px; display: flex; align-items: baseline; gap: 10px; }
+  .app-header h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -.4px; color: var(--text); }
+  .app-header span { font-size: .8rem; color: var(--sub); }
+
+  .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; }
+
+  .section-label {
+    font-size: .68rem; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--sub); margin-bottom: 12px;
+  }
+  .label-row {
+    display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px;
+  }
+  .label-row .section-label { margin-bottom: 0; }
+  .label-row .badge {
+    font-size: .72rem; font-weight: 600; color: var(--accent);
+    background: var(--accent-bg); padding: 2px 8px; border-radius: 99px;
+  }
+
+  /* ── Drop zone ── */
+  .dz {
+    border: 1.5px dashed var(--border); border-radius: 10px;
+    padding: 28px 16px; text-align: center;
+    transition: border-color .15s, background .15s; cursor: default;
+  }
+  .dz.over { border-color: var(--accent); background: var(--accent-bg); }
+  .dz-icon { font-size: 1.5rem; margin-bottom: 7px; opacity: .65; letter-spacing: -.5px; font-weight: 800; color: var(--sub); }
+  .dz-text { font-size: .88rem; color: var(--sub); }
+
+  .picker-row { margin-top: 10px; }
+  .picker-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; padding: 8px 12px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--card); font-size: .84rem; font-weight: 500; color: var(--sub);
+    cursor: pointer; transition: all .15s;
+  }
+  .picker-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+  .file-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip {
+    display: flex; align-items: center; gap: 5px;
+    padding: 3px 8px 3px 10px;
+    background: var(--accent-bg); border: 1px solid #C7D2FE;
+    border-radius: 999px; font-size: .78rem; font-weight: 500; color: var(--accent);
+  }
+  .chip button { background: none; border: none; cursor: pointer; color: #A5B4FC; font-size: .8rem; line-height: 1; padding: 0; display: flex; align-items: center; }
+  .chip button:hover { color: var(--red); }
+
+  /* ── Chapters list ── */
+  .chapters-wrap {
+    max-height: 320px;
+    overflow-y: auto;
+    margin: 0 -20px;
+    padding: 0 20px;
+  }
+  .ch-row {
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .ch-row:last-child { border-bottom: none; }
+  .ch-num {
+    font-size: .7rem; font-weight: 700; font-family: "Menlo", monospace;
+    color: var(--accent); background: var(--accent-bg);
+    border-radius: 5px; padding: 2px 4px; text-align: center;
+  }
+  .ch-title {
+    font-size: .84rem; color: var(--text);
+    border: 1px solid transparent; border-radius: 6px;
+    padding: 4px 7px; background: transparent;
+    outline: none; transition: border-color .12s, background .12s;
+    width: 100%;
+  }
+  .ch-title:hover { border-color: var(--border); background: var(--bg); }
+  .ch-title:focus { border-color: var(--accent); background: #fff; }
+  .ch-pages {
+    font-size: .74rem; color: var(--sub);
+    white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+
+  .no-outline {
+    font-size: .84rem; color: var(--sub); line-height: 1.6;
+    background: #FFFBEB; border: 1px solid #FDE68A;
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .no-outline strong { color: #92400E; }
+
+  /* ── Options ── */
+  .opt-row { display: flex; align-items: center; gap: 12px; }
+  .opt-row label { font-size: .84rem; font-weight: 500; color: var(--sub); white-space: nowrap; min-width: 90px; }
+  .seg-group { display: flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .seg-btn {
+    flex: 1; padding: 6px 11px; border: none; background: var(--card);
+    font-size: .8rem; font-weight: 500; color: var(--sub);
+    cursor: pointer; transition: all .12s; white-space: nowrap;
+  }
+  .seg-btn + .seg-btn { border-left: 1px solid var(--border); }
+  .seg-btn.active { background: var(--accent); color: #fff; }
+  .seg-btn:not(.active):hover { background: var(--bg); color: var(--text); }
+
+  /* ── Actions ── */
+  .action-bar { display: flex; gap: 8px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 20px; border: none; border-radius: 8px;
+    font-size: .88rem; font-weight: 600;
+    cursor: pointer; transition: background .15s, opacity .15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-h); }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-ghost { background: var(--bg); color: var(--sub); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: #A1A1AA; }
+
+  .progress-wrap { display: none; margin-top: 12px; }
+  .progress-wrap.visible { display: block; }
+  .progress-bg { height: 3px; background: var(--border); border-radius: 999px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .2s; width: 0%; }
+  .progress-text { font-size: .75rem; color: var(--sub); margin-top: 5px; }
+
+  #dl-section { display: none; }
+  #dl-section.visible { display: flex; }
+  .dl-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 13px 16px;
+  }
+  .dl-banner .dl-msg { font-size: .88rem; font-weight: 600; color: #15803D; }
+  .dl-banner .dl-sub { font-size: .76rem; color: var(--sub); margin-top: 2px; }
+
+  .log-card { padding: 0; overflow: hidden; }
+  .log-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid #27272A; background: #1C1C1F; }
+  .log-bar span { font-size: .7rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #52525B; }
+  .log-bar button { background: none; border: none; font-size: .75rem; color: #52525B; cursor: pointer; }
+  .log-bar button:hover { color: #A1A1AA; }
+  #log { font-family: "Menlo", "Consolas", monospace; font-size: .78rem; line-height: 1.65; padding: 10px 14px; height: 200px; overflow-y: auto; background: #111113; color: #A1A1AA; white-space: pre-wrap; word-break: break-all; }
+  #log .ok    { color: #4ADE80; }
+  #log .err   { color: #F87171; }
+  #log .head  { color: #818CF8; font-weight: 600; }
+  #log .muted { color: #3F3F46; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+
+  @media (max-width: 480px) { body { padding: 20px 12px 48px; } .card { padding: 14px 16px; } }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <a class="back-nav" href="../../index.html">All tools</a>
+
+  <div class="app-header">
+    <h1>PDF Chapter Splitter</h1>
+    <span>split by bookmark outline into separate files</span>
+  </div>
+
+  <!-- Source -->
+  <div class="card">
+    <div class="section-label">Source PDF</div>
+    <div class="dz" id="dropzone">
+      <div class="dz-icon">PDF</div>
+      <div class="dz-text">Drop a PDF file here</div>
+    </div>
+    <input type="file" id="file-input" accept=".pdf" style="display:none">
+    <div class="picker-row">
+      <button class="picker-btn" onclick="document.getElementById('file-input').click()">Select PDF</button>
+    </div>
+    <div class="file-list" id="file-list"></div>
+  </div>
+
+  <!-- Detected chapters (shown after load) -->
+  <div class="card" id="chapters-card" style="display:none">
+    <div class="label-row">
+      <span class="section-label">Detected chapters</span>
+      <span class="badge" id="ch-badge"></span>
+    </div>
+    <div class="chapters-wrap">
+      <div id="chapters-list"></div>
+    </div>
+  </div>
+
+  <!-- Options (shown after load) -->
+  <div class="card" id="options-card" style="display:none">
+    <div class="section-label">Naming</div>
+    <div class="opt-row">
+      <label>Prefix</label>
+      <div class="seg-group" id="prefix-group">
+        <button class="seg-btn active" data-val="num">01, 02…</button>
+        <button class="seg-btn" data-val="none">Title only</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="card">
+    <div class="action-bar">
+      <button class="btn btn-primary" id="run-btn" onclick="run()" disabled>Split &amp; Download</button>
+      <button class="btn btn-ghost" onclick="reset()">Clear</button>
+    </div>
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bg"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-text" id="progress-text"></div>
+    </div>
+  </div>
+
+  <!-- Success -->
+  <div id="dl-section">
+    <div class="dl-banner">
+      <div>
+        <div class="dl-msg" id="dl-msg">Done</div>
+        <div class="dl-sub" id="dl-sub"></div>
+      </div>
+      <button class="btn btn-primary" id="dl-btn">Download again</button>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card log-card">
+    <div class="log-bar">
+      <span>Output</span>
+      <button onclick="clearLog()">Clear</button>
+    </div>
+    <div id="log"></div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+        integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── State ───────────────────────────────────────────
+let selectedFile = null;
+let rawPdfBytes  = null;   // ArrayBuffer kept for pdf-lib
+let pdfJsDoc     = null;
+let chapters     = [];     // { title, startPage (0-based), endPage (0-based) }
+let prefixStyle  = 'num';  // 'num' | 'none'
+
+// ── File input ───────────────────────────────────────
+const dropzone  = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) setFile(e.target.files[0]);
+  e.target.value = '';
+});
+dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('over'); });
+dropzone.addEventListener('dragleave', e => { if (!dropzone.contains(e.relatedTarget)) dropzone.classList.remove('over'); });
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('over');
+  const f = [...e.dataTransfer.files].find(f => f.name.toLowerCase().endsWith('.pdf'));
+  if (f) setFile(f); else logLine('No PDF found in drop.', 'err');
+});
+
+// ── Prefix segmented control ─────────────────────────
+document.getElementById('prefix-group').addEventListener('click', e => {
+  const btn = e.target.closest('.seg-btn');
+  if (!btn) return;
+  document.querySelectorAll('#prefix-group .seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  prefixStyle = btn.dataset.val;
+});
+
+// ── Load PDF ─────────────────────────────────────────
+async function setFile(file) {
+  selectedFile = file;
+  renderFileChip();
+  document.getElementById('chapters-card').style.display = 'none';
+  document.getElementById('options-card').style.display  = 'none';
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('dl-section').classList.remove('visible');
+
+  logLine('─'.repeat(44), 'muted');
+  logLine(file.name, 'head');
+
+  try {
+    rawPdfBytes = await file.arrayBuffer();
+    const copy  = rawPdfBytes.slice(0); // PDF.js consumes the buffer
+    const task  = pdfjsLib.getDocument({ data: new Uint8Array(copy) });
+    pdfJsDoc    = await task.promise;
+    const totalPages = pdfJsDoc.numPages;
+    logLine(`  ${totalPages} page(s)`, 'muted');
+
+    const outline = await pdfJsDoc.getOutline();
+    if (!outline || outline.length === 0) {
+      renderNoOutline();
+      return;
+    }
+
+    chapters = [];
+    for (const item of outline) {
+      const dest = item.dest || (item.action && item.action.dest);
+      if (!dest) continue;
+      let pageIdx = 0;
+      try { pageIdx = await resolvePageIndex(dest); } catch(_) {}
+      chapters.push({ title: (item.title || 'Untitled').trim(), startPage: pageIdx });
+    }
+
+    // Deduplicate and sort by start page
+    const seen = new Set();
+    chapters = chapters.filter(c => { if (seen.has(c.startPage)) return false; seen.add(c.startPage); return true; });
+    chapters.sort((a, b) => a.startPage - b.startPage);
+
+    // Assign end pages
+    for (let i = 0; i < chapters.length; i++) {
+      chapters[i].endPage = i < chapters.length - 1
+        ? chapters[i + 1].startPage - 1
+        : totalPages - 1;
+    }
+
+    logLine(`  ${chapters.length} chapter(s) detected`, 'ok');
+    renderChapters();
+    document.getElementById('chapters-card').style.display = 'block';
+    document.getElementById('options-card').style.display  = 'block';
+    document.getElementById('run-btn').disabled = false;
+
+  } catch(e) {
+    logLine(`Error: ${e.message}`, 'err');
+  }
+}
+
+async function resolvePageIndex(dest) {
+  let d = dest;
+  if (typeof d === 'string') d = await pdfJsDoc.getDestination(d);
+  if (!d || !d.length) return 0;
+  try { return await pdfJsDoc.getPageIndex(d[0]); }
+  catch(_) { return 0; }
+}
+
+// ── Render chapters list ──────────────────────────────
+function renderChapters() {
+  document.getElementById('ch-badge').textContent =
+    `${chapters.length} chapter${chapters.length !== 1 ? 's' : ''}`;
+
+  document.getElementById('chapters-list').innerHTML = chapters.map((c, i) => `
+    <div class="ch-row">
+      <span class="ch-num">${String(i + 1).padStart(2, '0')}</span>
+      <input class="ch-title" data-idx="${i}" value="${escHtml(c.title)}" spellcheck="false">
+      <span class="ch-pages">pp.&thinsp;${c.startPage + 1}–${c.endPage + 1}</span>
+    </div>`).join('');
+}
+
+function renderNoOutline() {
+  document.getElementById('chapters-card').style.display = 'block';
+  document.getElementById('ch-badge').textContent = '0 chapters';
+  document.getElementById('chapters-list').innerHTML = `
+    <div class="no-outline">
+      <strong>No bookmark outline found.</strong><br>
+      Chapter detection requires a PDF with a table of contents / bookmarks.
+      Add bookmarks in Acrobat, Preview, or any PDF editor, then try again.
+    </div>`;
+}
+
+// ── Split ─────────────────────────────────────────────
+async function run() {
+  if (!rawPdfBytes || !chapters.length) return;
+
+  // Read edited titles from inputs
+  document.querySelectorAll('.ch-title').forEach(el => {
+    chapters[parseInt(el.dataset.idx, 10)].title = el.value;
+  });
+
+  const runBtn = document.getElementById('run-btn');
+  runBtn.disabled = true;
+  runBtn.innerHTML = '<div class="spinner"></div> Splitting…';
+  setProgress(true, 0, 'Loading…');
+  document.getElementById('dl-section').classList.remove('visible');
+  logLine('─'.repeat(44), 'muted');
+
+  try {
+    const srcPdf = await PDFLib.PDFDocument.load(rawPdfBytes, { ignoreEncryption: true });
+    const zip    = new JSZip();
+
+    for (let i = 0; i < chapters.length; i++) {
+      const ch    = chapters[i];
+      const title = ch.title.trim() || `Chapter ${i + 1}`;
+      const safe  = sanitizeFilename(title);
+      const name  = prefixStyle === 'num'
+        ? `${String(i + 1).padStart(2, '0')} - ${safe}.pdf`
+        : `${safe}.pdf`;
+
+      setProgress(true, Math.round((i / chapters.length) * 90),
+        `${i + 1}/${chapters.length} — ${title}`);
+      logLine(`  ${name}  (pp. ${ch.startPage + 1}–${ch.endPage + 1})`);
+
+      const indices = [];
+      for (let p = ch.startPage; p <= ch.endPage; p++) indices.push(p);
+
+      const outDoc   = await PDFLib.PDFDocument.create();
+      const copied   = await outDoc.copyPages(srcPdf, indices);
+      copied.forEach(p => outDoc.addPage(p));
+      const outBytes = await outDoc.save();
+      zip.file(name, outBytes);
+      logLine(`  → ${name}`, 'ok');
+
+      await new Promise(r => setTimeout(r, 0)); // keep UI responsive
+    }
+
+    setProgress(true, 95, 'Building ZIP…');
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const outName = selectedFile.name.replace(/\.pdf$/i, '') + '-chapters.zip';
+
+    setProgress(true, 100, 'Done');
+    logLine(`\n${chapters.length} chapter(s) → ${outName}`, 'ok');
+
+    document.getElementById('dl-btn').onclick = () => downloadBlob(zipBlob, outName);
+    document.getElementById('dl-msg').textContent = `${chapters.length} chapters extracted`;
+    document.getElementById('dl-sub').textContent  = outName;
+    document.getElementById('dl-section').classList.add('visible');
+    downloadBlob(zipBlob, outName);
+
+  } catch(e) {
+    logLine(`Error: ${e.message}`, 'err');
+  }
+
+  setProgress(false);
+  runBtn.disabled = false;
+  runBtn.innerHTML = 'Split &amp; Download';
+}
+
+// ── Helpers ───────────────────────────────────────────
+function sanitizeFilename(s) {
+  return s.replace(/[/\\:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim().substring(0, 120);
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function setProgress(visible, pct, text) {
+  document.getElementById('progress-wrap').classList.toggle('visible', visible);
+  if (visible) {
+    document.getElementById('progress-fill').style.width = (pct || 0) + '%';
+    document.getElementById('progress-text').textContent = text || '';
+  }
+}
+
+function logLine(msg, cls) {
+  const log  = document.getElementById('log');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+function renderFileChip() {
+  document.getElementById('file-list').innerHTML = selectedFile ? `
+    <div class="chip">
+      ${escHtml(selectedFile.name)}
+      <button title="Remove" onclick="clearFile()">✕</button>
+    </div>` : '';
+}
+
+function clearFile() {
+  selectedFile = null; rawPdfBytes = null; pdfJsDoc = null; chapters = [];
+  renderFileChip();
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('chapters-card').style.display = 'none';
+  document.getElementById('options-card').style.display  = 'none';
+}
+
+function reset() {
+  clearFile(); clearLog();
+  document.getElementById('dl-section').classList.remove('visible');
+  setProgress(false);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

@@ -22,6 +22,8 @@
     --amber:     #D97706;
     --sky-bg:    #F0F9FF;
     --sky:       #0284C7;
+    --rose-bg:   #FFF1F2;
+    --rose:      #E11D48;
     --shadow:    0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
     --shadow-md: 0 4px 12px rgba(0,0,0,.09), 0 1px 4px rgba(0,0,0,.06);
     --radius:    12px;
@@ -135,6 +137,7 @@
   .icon-green  { background: var(--green-bg);  color: #16A34A; }
   .icon-amber  { background: var(--amber-bg);  color: var(--amber); }
   .icon-sky    { background: var(--sky-bg);    color: var(--sky); }
+  .icon-rose   { background: var(--rose-bg);  color: var(--rose); }
 
   .card-top {
     display: flex;
@@ -156,6 +159,7 @@
   .badge-photos { background: var(--accent-bg); color: var(--accent); }
   .badge-files  { background: var(--green-bg);  color: #16A34A; }
   .badge-pdf    { background: var(--sky-bg);    color: var(--sky); }
+  .badge-pdf-r  { background: var(--rose-bg);  color: var(--rose); }
 
   .app-name {
     font-size: 1rem;
@@ -196,7 +200,7 @@
 
   <header class="site-header">
     <h1>My Tools</h1>
-    <span class="count" id="count-label">4 apps</span>
+    <span class="count" id="count-label">5 apps</span>
   </header>
 
   <div class="filter-bar">
@@ -249,6 +253,17 @@
       </div>
       <div class="app-name">PDF Duplicator</div>
       <div class="app-desc">Repeat a PDF's pages n times in-browser. Drop a PDF, set a count, download the expanded file.</div>
+      <div class="app-open">Open</div>
+    </a>
+
+    <a class="app-card" href="apps/pdf-splitter/index.html" target="_blank"
+       data-category="pdf">
+      <div class="card-top">
+        <div class="app-icon icon-rose">SP</div>
+        <span class="cat-badge badge-pdf-r">PDF</span>
+      </div>
+      <div class="app-name">PDF Chapter Splitter</div>
+      <div class="app-desc">Split a PDF into one file per chapter using its bookmark outline. Edit titles before exporting.</div>
       <div class="app-open">Open</div>
     </a>
 
